@@ -1,3 +1,9 @@
+import sys
+from pathlib import Path
+
+# Add project root directory to Python path
+sys.path.append(str(Path(__file__).parent.parent))
+
 from backend.performance import analyze_performance
 from backend.assessment import generate_quiz, evaluate_quiz
 from backend.history import record_assessment, get_topic_history
