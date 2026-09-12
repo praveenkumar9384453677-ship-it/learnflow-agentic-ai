@@ -3,6 +3,13 @@ import './App.css'
 
 function App() {
   const [goal, setGoal] = useState("Learn Java in 30 days")
+
+  const [scores] = useState([
+    { topic: "Arrays", score: 75, color: "#10b981", tag: "Solid" },
+    { topic: "OOP Concepts", score: 45, color: "#f59e0b", tag: "Needs Practice" },
+    { topic: "Recursion", score: 30, color: "#ef4444", tag: "Critical Gap" }
+  ])
+
   const [agentTrace, setAgentTrace] = useState([
     "Goal received: Learn Java in 30 days",
     "Analyzed scores: Arrays (75%), OOP (45%), Recursion (30%)",
@@ -11,40 +18,60 @@ function App() {
   ])
 
   const [schedule, setSchedule] = useState([
-    { day: "Day 1 (Mon)", topic: "Recursion Basics & Call Stack", status: "pending" },
-    { day: "Day 2 (Tue)", topic: "Recursion Practice Problems", status: "pending" },
-    { day: "Day 3 (Wed)", topic: "Recursion Quiz & Assessment", status: "pending" }
+    { id: 1, dayNumber: 1, topic: "Recursion Basics & Call Stack", status: "pending" },
+    { id: 2, dayNumber: 2, topic: "Recursion Practice Problems", status: "pending" },
+    { id: 3, dayNumber: 3, topic: "Recursion Quiz & Assessment", status: "pending" }
   ])
 
-  // When student clicks "Completed"
-  const handleComplete = (index) => {
-    const updated = [...schedule]
-    updated[index].status = "completed"
-    setSchedule(updated)
+  const handleComplete = (clickedIndex) => {
+    setSchedule((prevSchedule) => {
+      const updated = prevSchedule.map((item, idx) => 
+        idx === clickedIndex ? { ...item, status: "completed" } : item
+      )
+      return updated
+    })
+
+    const completedItem = schedule[clickedIndex]
     setAgentTrace((prev) => [
       ...prev,
-      `Session completed: ${updated[index].day} - ${updated[index].topic}`
+      `Session completed: Day ${completedItem.dayNumber} - ${completedItem.topic}`
     ])
   }
 
-  // When student clicks "Missed" -> Triggers Agent Replanning!
-  const handleMissed = (index) => {
-    const updated = [...schedule]
-    updated[index].status = "missed"
-    
-    // Agent replans: moves the missed topic to the next slot
-    const replanned = [
-      ...updated.slice(0, index + 1),
-      { day: `Day ${index + 2} (Replanned)`, topic: updated[index].topic, status: "pending" },
-      { day: `Day ${index + 3} (Replanned)`, topic: "Practice & Quiz", status: "pending" }
-    ]
+  const handleMissed = (clickedIndex) => {
+    const missedItem = schedule[clickedIndex]
 
-    setSchedule(replanned)
+    setSchedule((prevSchedule) => {
+      // 1. Everything up to the clicked item
+      const pastItems = prevSchedule.slice(0, clickedIndex)
+
+      // 2. Mark the missed item
+      const markedMissed = { ...missedItem, status: "missed" }
+
+      // 3. Topics that still need to be completed (the missed one + everything after it)
+      const topicsToLearn = [
+        missedItem.topic,
+        ...prevSchedule.slice(clickedIndex + 1).map((item) => item.topic)
+      ]
+
+      // 4. Create new upcoming days starting from the next day number
+      const nextStartDay = missedItem.dayNumber + 1
+      const rescheduledItems = topicsToLearn.map((topic, offset) => ({
+        id: Date.now() + offset,
+        dayNumber: nextStartDay + offset,
+        topic: topic,
+        status: "pending"
+      }))
+
+      // Combine: History + Missed record + All shifted items preserved
+      return [...pastItems, markedMissed, ...rescheduledItems]
+    })
+
     setAgentTrace((prev) => [
       ...prev,
-      `⚠️ ALERT: Student missed ${updated[index].day}!`,
-      `🧠 AGENT REPLANNING: Rescheduling ${updated[index].topic} to next day.`,
-      `✅ New learning schedule generated.`
+      `⚠️ ALERT: Student missed Day ${missedItem.dayNumber}!`,
+      `🧠 AGENT REPLANNING: Rescheduling "${missedItem.topic}" to Day ${missedItem.dayNumber + 1}.`,
+      `⏩ Pushing subsequent lessons forward so zero content is lost.`
     ])
   }
 
@@ -55,7 +82,7 @@ function App() {
         <p>Autonomous AI Learning Planner</p>
       </header>
 
-      {/* Section 1: Student Goal */}
+      {/* Section 1: Target Goal */}
       <div className="card">
         <h2>Target Learning Goal</h2>
         <input 
@@ -66,7 +93,31 @@ function App() {
         />
       </div>
 
-      {/* Section 2: Agent Live Trace */}
+      {/* Section 2: Initial Diagnostics */}
+      <div className="card">
+        <h2>Initial Diagnostic Performance</h2>
+        <div className="scores-grid">
+          {scores.map((item, idx) => (
+            <div key={idx} className="score-chip">
+              <div className="score-header">
+                <span>{item.topic}</span>
+                <span>{item.score}%</span>
+              </div>
+              <div className="progress-bar-bg">
+                <div 
+                  className="progress-bar-fill" 
+                  style={{ width: `${item.score}%`, backgroundColor: item.color }} 
+                />
+              </div>
+              <span style={{ color: item.color, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                {item.tag}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Section 3: Agent Live Trace */}
       <div className="card">
         <h2>Agent Decision Log (Proof of Autonomy)</h2>
         <div className="trace-box">
@@ -76,14 +127,18 @@ function App() {
         </div>
       </div>
 
-      {/* Section 3: Learning Schedule */}
+      {/* Section 4: Learning Schedule */}
       <div className="card">
         <h2>Interactive Study Plan</h2>
         {schedule.map((session, index) => (
-          <div key={index} className="session-item">
+          <div key={session.id || index} className="session-item">
             <div>
-              <strong>{session.day}:</strong> {session.topic}
-              <span style={{ marginLeft: '10px', color: session.status === 'completed' ? '#10b981' : session.status === 'missed' ? '#ef4444' : '#6b7280' }}>
+              <strong>Day {session.dayNumber}:</strong> {session.topic}
+              <span style={{ 
+                marginLeft: '10px', 
+                textTransform: 'capitalize',
+                color: session.status === 'completed' ? '#10b981' : session.status === 'missed' ? '#ef4444' : '#6b7280' 
+              }}>
                 ({session.status})
               </span>
             </div>
