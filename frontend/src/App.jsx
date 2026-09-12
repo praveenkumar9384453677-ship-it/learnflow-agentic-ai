@@ -4,11 +4,25 @@ import './App.css'
 function App() {
   const [goal, setGoal] = useState("Learn Java in 30 days")
 
-  const [scores] = useState([
+  const [scores, setScores] = useState([
     { topic: "Arrays", score: 75, color: "#10b981", tag: "Solid" },
     { topic: "OOP Concepts", score: 45, color: "#f59e0b", tag: "Needs Practice" },
     { topic: "Recursion", score: 30, color: "#ef4444", tag: "Critical Gap" }
   ])
+  const [activeTopic, setActiveTopic] = useState("Recursion")
+
+  const resourceBank = {
+    Recursion: [
+      { title: "Recursion in 100 Seconds", type: "Video", tag: "tag-video", duration: "5 mins", link: "#" },
+      { title: "Visualizing the Call Stack", type: "Article", tag: "tag-article", duration: "8 mins read", link: "#" },
+      { title: "Factorial & Fibonacci Problem Set", type: "Practice", tag: "tag-practice", duration: "4 problems", link: "#" }
+    ],
+    "OOP Concepts": [
+      { title: "Java OOP Basics & Pillars", type: "Video", tag: "tag-video", duration: "12 mins", link: "#" },
+      { title: "Encapsulation & Getters/Setters", type: "Article", tag: "tag-article", duration: "6 mins read", link: "#" },
+      { title: "Design a Student Class", type: "Practice", tag: "tag-practice", duration: "2 exercises", link: "#" }
+    ]
+  }
 
   const [agentTrace, setAgentTrace] = useState([
     "Goal received: Learn Java in 30 days",
@@ -23,15 +37,15 @@ function App() {
     { id: 3, dayNumber: 3, topic: "Recursion Quiz & Assessment", status: "pending" }
   ])
 
-  const handleComplete = (clickedIndex) => {
-    setSchedule((prevSchedule) => {
-      const updated = prevSchedule.map((item, idx) => 
-        idx === clickedIndex ? { ...item, status: "completed" } : item
-      )
-      return updated
-    })
+  // Quiz state
+  const [answers, setAnswers] = useState({ q1: null, q2: null })
+  const [quizSubmitted, setQuizSubmitted] = useState(false)
 
+  const handleComplete = (clickedIndex) => {
     const completedItem = schedule[clickedIndex]
+    setSchedule((prev) =>
+      prev.map((item, idx) => (idx === clickedIndex ? { ...item, status: "completed" } : item))
+    )
     setAgentTrace((prev) => [
       ...prev,
       `Session completed: Day ${completedItem.dayNumber} - ${completedItem.topic}`
@@ -42,19 +56,12 @@ function App() {
     const missedItem = schedule[clickedIndex]
 
     setSchedule((prevSchedule) => {
-      // 1. Everything up to the clicked item
       const pastItems = prevSchedule.slice(0, clickedIndex)
-
-      // 2. Mark the missed item
       const markedMissed = { ...missedItem, status: "missed" }
-
-      // 3. Topics that still need to be completed (the missed one + everything after it)
       const topicsToLearn = [
         missedItem.topic,
         ...prevSchedule.slice(clickedIndex + 1).map((item) => item.topic)
       ]
-
-      // 4. Create new upcoming days starting from the next day number
       const nextStartDay = missedItem.dayNumber + 1
       const rescheduledItems = topicsToLearn.map((topic, offset) => ({
         id: Date.now() + offset,
@@ -62,8 +69,6 @@ function App() {
         topic: topic,
         status: "pending"
       }))
-
-      // Combine: History + Missed record + All shifted items preserved
       return [...pastItems, markedMissed, ...rescheduledItems]
     })
 
@@ -75,6 +80,56 @@ function App() {
     ])
   }
 
+  // Quiz submission & agent reassessment
+  const handleQuizSubmit = () => {
+    let correctCount = 0
+    if (answers.q1 === "A") correctCount++
+    if (answers.q2 === "B") correctCount++
+    const percentage = Math.round((correctCount / 2) * 100)
+    setQuizSubmitted(true)
+
+    if (percentage >= 80) {
+      // Branch 1: High Score -> Topic mastered!
+      setScores((prev) =>
+        prev.map((s) =>
+          s.topic === "Recursion"
+            ? { ...s, score: 85, color: "#10b981", tag: "Mastered" }
+            : s
+        )
+      )
+      setActiveTopic("OOP Concepts")
+
+      // Add OOP next
+      const maxDay = schedule[schedule.length - 1].dayNumber
+      setSchedule((prev) => [
+        ...prev,
+        { id: Date.now(), dayNumber: maxDay + 1, topic: "OOP: Classes & Encapsulation", status: "pending" }
+      ])
+
+      setAgentTrace((prev) => [
+        ...prev,
+        `📝 Quiz Result: ${percentage}% on Recursion!`,
+        `🎉 EVALUATION: Student has achieved mastery in Recursion (Score updated to 85%).`,
+        `🧠 AGENT DECISION: Transitioning to next weak topic: OOP Concepts.`
+      ])
+    } else {
+      // Branch 2: Low Score -> Add remedial session
+      const maxDay = schedule[schedule.length - 1].dayNumber
+      setSchedule((prev) => [
+        ...prev,
+        { id: Date.now(), dayNumber: maxDay + 1, topic: "Remedial Practice: Base Cases & Tree Recursion", status: "pending" },
+        { id: Date.now() + 1, dayNumber: maxDay + 2, topic: "Retake Recursion Assessment", status: "pending" }
+      ])
+
+      setAgentTrace((prev) => [
+        ...prev,
+        `📝 Quiz Result: ${percentage}% on Recursion.`,
+        `⚠️ EVALUATION: Concept gap persists in Recursion.`,
+        `🧠 AGENT DECISION: Adding 2 remedial reinforcement sessions to schedule.`
+      ])
+    }
+  }
+
   return (
     <div className="container">
       <header>
@@ -82,7 +137,7 @@ function App() {
         <p>Autonomous AI Learning Planner</p>
       </header>
 
-      {/* Section 1: Target Goal */}
+      {/* 1. Target Goal */}
       <div className="card">
         <h2>Target Learning Goal</h2>
         <input 
@@ -93,9 +148,9 @@ function App() {
         />
       </div>
 
-      {/* Section 2: Initial Diagnostics */}
+      {/* 2. Diagnostic Scores */}
       <div className="card">
-        <h2>Initial Diagnostic Performance</h2>
+        <h2>Diagnostic Performance & Topic Status</h2>
         <div className="scores-grid">
           {scores.map((item, idx) => (
             <div key={idx} className="score-chip">
@@ -117,7 +172,7 @@ function App() {
         </div>
       </div>
 
-      {/* Section 3: Agent Live Trace */}
+      {/* 3. Agent Decision Log */}
       <div className="card">
         <h2>Agent Decision Log (Proof of Autonomy)</h2>
         <div className="trace-box">
@@ -126,8 +181,25 @@ function App() {
           ))}
         </div>
       </div>
-
-      {/* Section 4: Learning Schedule */}
+       {/* Dynamic Resource Recommendations */}
+      <div className="card">
+        <h2>AI-Retrieved Resources ({activeTopic})</h2>
+        <div className="resources-grid">
+          {resourceBank[activeTopic]?.map((res, i) => (
+            <div key={i} className="resource-card">
+              <div>
+                <span className={`resource-tag ${res.tag}`}>{res.type}</span>
+                <p style={{ marginTop: '6px', fontWeight: 'bold' }}>{res.title}</p>
+                <small style={{ color: '#64748b' }}>{res.duration}</small>
+              </div>
+              <a href={res.link} className="resource-link" onClick={(e) => e.preventDefault()}>
+                Open Material →
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* 4. Interactive Study Plan */}
       <div className="card">
         <h2>Interactive Study Plan</h2>
         {schedule.map((session, index) => (
@@ -154,6 +226,57 @@ function App() {
             )}
           </div>
         ))}
+      </div>
+
+      {/* 5. Assessment Card */}
+      <div className="card">
+        <h2>Topic Assessment: Recursion</h2>
+        {!quizSubmitted ? (
+          <div className="quiz-box">
+            <div className="quiz-q">
+              <p><strong>1. What happens if a recursive function does not have a base case?</strong></p>
+              <div className="quiz-options">
+                <button 
+                  className={answers.q1 === "A" ? "selected" : ""} 
+                  onClick={() => setAnswers({ ...answers, q1: "A" })}>
+                  A) StackOverflowError
+                </button>
+                <button 
+                  className={answers.q1 === "B" ? "selected" : ""} 
+                  onClick={() => setAnswers({ ...answers, q1: "B" })}>
+                  B) Returns 0
+                </button>
+              </div>
+            </div>
+
+            <div className="quiz-q">
+              <p><strong>2. In recursion, each function call is placed onto the:</strong></p>
+              <div className="quiz-options">
+                <button 
+                  className={answers.q2 === "A" ? "selected" : ""} 
+                  onClick={() => setAnswers({ ...answers, q2: "A" })}>
+                  A) Heap Memory
+                </button>
+                <button 
+                  className={answers.q2 === "B" ? "selected" : ""} 
+                  onClick={() => setAnswers({ ...answers, q2: "B" })}>
+                  B) Call Stack
+                </button>
+              </div>
+            </div>
+
+            <button 
+              className="btn-submit-quiz" 
+              disabled={!answers.q1 || !answers.q2}
+              onClick={handleQuizSubmit}>
+              Submit for AI Reassessment
+            </button>
+          </div>
+        ) : (
+          <p style={{ color: '#10b981', fontWeight: 'bold' }}>
+            Assessment submitted! Check the Agent Decision Log above to see the adaptation.
+          </p>
+        )}
       </div>
     </div>
   )
