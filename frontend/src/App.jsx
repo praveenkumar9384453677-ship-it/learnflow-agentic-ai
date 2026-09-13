@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import './App.css'
+import { notifyMissedSession, submitQuizAnswers } from './api'
 
 function App() {
   const [goal, setGoal] = useState("Learn Java in 30 days")
@@ -9,6 +10,7 @@ function App() {
     { topic: "OOP Concepts", score: 45, color: "#f59e0b", tag: "Needs Practice" },
     { topic: "Recursion", score: 30, color: "#ef4444", tag: "Critical Gap" }
   ])
+
   const [activeTopic, setActiveTopic] = useState("Recursion")
 
   const resourceBank = {
@@ -52,8 +54,11 @@ function App() {
     ])
   }
 
-  const handleMissed = (clickedIndex) => {
+  const handleMissed = async (clickedIndex) => {
     const missedItem = schedule[clickedIndex]
+
+    // Trigger API call (mock or live)
+    await notifyMissedSession(missedItem.id, missedItem.topic, missedItem.dayNumber)
 
     setSchedule((prevSchedule) => {
       const pastItems = prevSchedule.slice(0, clickedIndex)
@@ -81,15 +86,13 @@ function App() {
   }
 
   // Quiz submission & agent reassessment
-  const handleQuizSubmit = () => {
-    let correctCount = 0
-    if (answers.q1 === "A") correctCount++
-    if (answers.q2 === "B") correctCount++
-    const percentage = Math.round((correctCount / 2) * 100)
+  const handleQuizSubmit = async () => {
+    // Send answers through API abstraction
+    const result = await submitQuizAnswers(answers)
+    const percentage = result.score
     setQuizSubmitted(true)
 
-    if (percentage >= 80) {
-      // Branch 1: High Score -> Topic mastered!
+    if (result.passed) {
       setScores((prev) =>
         prev.map((s) =>
           s.topic === "Recursion"
@@ -99,7 +102,6 @@ function App() {
       )
       setActiveTopic("OOP Concepts")
 
-      // Add OOP next
       const maxDay = schedule[schedule.length - 1].dayNumber
       setSchedule((prev) => [
         ...prev,
@@ -113,7 +115,6 @@ function App() {
         `🧠 AGENT DECISION: Transitioning to next weak topic: OOP Concepts.`
       ])
     } else {
-      // Branch 2: Low Score -> Add remedial session
       const maxDay = schedule[schedule.length - 1].dayNumber
       setSchedule((prev) => [
         ...prev,
@@ -172,16 +173,7 @@ function App() {
         </div>
       </div>
 
-      {/* 3. Agent Decision Log */}
-      <div className="card">
-        <h2>Agent Decision Log (Proof of Autonomy)</h2>
-        <div className="trace-box">
-          {agentTrace.map((log, i) => (
-            <div key={i}>&gt; {log}</div>
-          ))}
-        </div>
-      </div>
-       {/* Dynamic Resource Recommendations */}
+      {/* 3. Dynamic Resources */}
       <div className="card">
         <h2>AI-Retrieved Resources ({activeTopic})</h2>
         <div className="resources-grid">
@@ -199,7 +191,18 @@ function App() {
           ))}
         </div>
       </div>
-      {/* 4. Interactive Study Plan */}
+
+      {/* 4. Agent Decision Log */}
+      <div className="card">
+        <h2>Agent Decision Log (Proof of Autonomy)</h2>
+        <div className="trace-box">
+          {agentTrace.map((log, i) => (
+            <div key={i}>&gt; {log}</div>
+          ))}
+        </div>
+      </div>
+
+      {/* 5. Interactive Study Plan */}
       <div className="card">
         <h2>Interactive Study Plan</h2>
         {schedule.map((session, index) => (
@@ -228,7 +231,7 @@ function App() {
         ))}
       </div>
 
-      {/* 5. Assessment Card */}
+      {/* 6. Assessment Card */}
       <div className="card">
         <h2>Topic Assessment: Recursion</h2>
         {!quizSubmitted ? (
